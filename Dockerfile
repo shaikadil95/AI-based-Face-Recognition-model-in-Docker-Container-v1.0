@@ -1,4 +1,4 @@
-FROM python:3.4-slim
+FROM python:3.14.0a3-slim
 
 RUN apt-get -y update && \
     apt-get install -y --fix-missing \
