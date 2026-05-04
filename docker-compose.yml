@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+
+  # ── Camera mode: real-time recognition from a connected webcam / CSI camera
+  face-recognition:
+    build: .
+    image: face-recognition:latest
+    environment:
+      DISPLAY_VIDEO:        "false"
+      CONFIDENCE_THRESHOLD: "0.60"
+      FRAME_SKIP:           "5"
+      SCALE_FACTOR:         "0.25"
+      WEBCAM_ID:            "0"
+      GPIO_LOCK_PIN:        "17"
+      UNLOCK_DURATION:      "3.0"
+      AUTHORIZED_NAMES:     ""    # comma-separated; empty = allow all recognised faces
+      RUN_API:              "false"
+    devices:
+      - /dev/video0:/dev/video0   # webcam or CSI camera (Raspberry Pi)
+    privileged: true              # required for GPIO access on Raspberry Pi
+    volumes:
+      - ./Imagefolder:/app/Imagefolder
+    restart: unless-stopped
+
+  # ── API mode: HTTP REST API for remote image-based recognition
+  face-api:
+    build: .
+    image: face-recognition:latest
+    environment:
+      RUN_API:              "true"
+      CONFIDENCE_THRESHOLD: "0.60"
+      API_PORT:             "5000"
+      AUTHORIZED_NAMES:     ""
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./Imagefolder:/app/Imagefolder
+    restart: unless-stopped

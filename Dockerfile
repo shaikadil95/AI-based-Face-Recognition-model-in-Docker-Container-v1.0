@@ -1,65 +1,47 @@
-FROM python:3.4-slim
+FROM python:3.11-slim
 
-RUN apt-get -y update && \
-    apt-get install -y --fix-missing \
+# cmake + build-essential are required by dlib when no pre-built wheel is
+# available for the target platform (e.g. Raspberry Pi armv7l / aarch64).
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
-    gfortran \
-    git \
-    wget \
-    curl \
-    graphicsmagick \
-    libgraphicsmagick1-dev \
-    libatlas-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libboost-all-dev \
-    libgtk2.0-dev \
-    libjpeg-dev \
+    libopenblas-dev \
     liblapack-dev \
-    libswscale-dev \
-    pkg-config \
-    python3-dev \
-    python3-numpy \
-    software-properties-common \
-    zip \
-    && apt-get clean && rm -rf /tmp/* /var/tmp/*
-RUN pip install opencv-python
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
 
-# Install DLIB
-RUN cd ~ && \
-    mkdir -p dlib && \
-    git clone -b 'v19.7' --single-branch https://github.com/davisking/dlib.git dlib/ && \
-    cd  dlib/ && \
-    python3 setup.py install --yes USE_AVX_INSTRUCTIONS
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Install RPi.GPIO only when running on ARM (Raspberry Pi hardware).
+# The gpio_lock module silently falls back to simulation mode when the
+# package is absent, so this is a soft dependency.
+RUN if [ "$(uname -m)" = "armv7l" ] || [ "$(uname -m)" = "aarch64" ]; then \
+        pip install --no-cache-dir RPi.GPIO==0.7.1; \
+    fi
 
-# Install Flask
-RUN cd ~ && \
-    pip3 install flask flask-cors
+COPY Imagefolder /app/Imagefolder/
+COPY face.py api.py gpio_lock.py /app/
 
+# ── Default environment (override at runtime with -e or docker-compose) ───
+ENV DISPLAY_VIDEO=false \
+    CONFIDENCE_THRESHOLD=0.60 \
+    FRAME_SKIP=5 \
+    SCALE_FACTOR=0.25 \
+    WEBCAM_ID=0 \
+    IMAGE_FOLDER=/app/Imagefolder \
+    LOG_FILE=/app/recognition_log.csv \
+    MODEL_FILE=/app/face_model.pkl \
+    GPIO_LOCK_PIN=17 \
+    UNLOCK_DURATION=3.0 \
+    RUN_API=false \
+    API_PORT=5000 \
+    AUTHORIZED_NAMES=""
 
-# Install Face-Recognition Python Library
-RUN cd ~ && \
-    mkdir -p face_recognition && \
-    git clone https://github.com/ageitgey/face_recognition.git face_recognition/ && \
-    cd face_recognition/ && \
-    pip3 install -r requirements.txt && \
-    python3 setup.py install
+EXPOSE 5000
 
-
-
-
-
-# Bundle app source
-
-
-
-COPY Imagefolder /root/Imagefolder
-COPY face.py /root/face.py
-
-CMD cd /root/ && \
-    python face.py
-
-
+CMD ["python", "face.py"]
