@@ -1,0 +1,9 @@
+.git
+.github
+.claude
+__pycache__
+*.pyc
+*.pyo
+*.pkl
+recognition_log.csv
+.env

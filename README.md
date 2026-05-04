@@ -120,12 +120,47 @@ docker compose up face-recognition
 docker compose up face-api
 ```
 
-### Multi-arch build for Raspberry Pi
+### Supported platforms
+
+| Platform | Target | Notes |
+|---|---|---|
+| `linux/amd64` | x86-64 | Laptops, desktops, Docker Desktop on Intel Mac |
+| `linux/arm64` | 64-bit ARM | **Apple M1/M2/M3 Mac**, Raspberry Pi 4 (64-bit OS) |
+| `linux/arm/v7` | 32-bit ARM | Raspberry Pi 2 / 3 / 4 (32-bit Raspbian) — **primary target** |
+
+The image runs on any platform. Features degrade gracefully when hardware is unavailable:
+
+| Feature | Raspberry Pi | Any other machine |
+|---|---|---|
+| Face recognition | Full | Full |
+| REST API | Full | Full |
+| Camera loop | Full (webcam / CSI) | Full (webcam required) |
+| GPIO door lock | Real relay on configured pin | Simulated — logged but no pin toggle |
+
+**Apple M1/M2/M3:** Docker Desktop runs containers as `linux/arm64` automatically. Just `docker build` and `docker run` as usual — no extra flags needed.
+
+### Build for your platform
 
 ```bash
+# Standard build (Docker auto-detects your platform)
+docker build -t face-recognition .
+
+# Explicitly target a platform (useful for cross-compilation)
+docker build --platform linux/arm64   -t face-recognition:arm64 .   # M1/M2 Mac, Pi 64-bit
+docker build --platform linux/arm/v7  -t face-recognition:armv7 .   # Pi 32-bit
+docker build --platform linux/amd64   -t face-recognition:amd64 .   # Intel/AMD
+```
+
+### Build all platforms at once (buildx)
+
+```bash
+# One-time setup
+docker buildx create --use --name multiarch
+
+# Build all three platforms into a single multi-arch manifest
 docker buildx build \
-  --platform linux/arm64,linux/amd64 \
-  -t face-recognition:latest \
+  --platform linux/amd64,linux/arm64,linux/arm/v7 \
+  -t yourname/face-recognition:latest \
   --push .
 ```
 

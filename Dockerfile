@@ -1,7 +1,15 @@
 FROM python:3.11-slim
 
+# BuildKit automatically sets these when using --platform or docker buildx.
+# Declaring them here makes them available in RUN steps.
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG BUILDPLATFORM
+RUN echo "Building for $TARGETPLATFORM on $BUILDPLATFORM"
+
 # cmake + build-essential are required by dlib when no pre-built wheel is
-# available for the target platform (e.g. Raspberry Pi armv7l / aarch64).
+# available for the target platform (e.g. linux/arm/v7).
+# libopenblas-dev / liblapack-dev cover all supported architectures in Debian slim.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -17,10 +25,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install RPi.GPIO only when running on ARM (Raspberry Pi hardware).
-# The gpio_lock module silently falls back to simulation mode when the
-# package is absent, so this is a soft dependency.
-RUN if [ "$(uname -m)" = "armv7l" ] || [ "$(uname -m)" = "aarch64" ]; then \
+# Install RPi.GPIO on ARM targets (arm = linux/arm/v7, arm64 = linux/arm64).
+# We use $TARGETARCH (set by BuildKit) instead of uname -m so this works
+# correctly during cross-compilation on an x86 build host.
+# gpio_lock.py silently falls back to simulation mode on non-Pi hardware.
+RUN if [ "$TARGETARCH" = "arm" ] || [ "$TARGETARCH" = "arm64" ]; then \
         pip install --no-cache-dir RPi.GPIO==0.7.1; \
     fi
 
